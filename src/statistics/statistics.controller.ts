@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
 
+import { AdminGuard } from 'src/auth/strategies/admin.strategy';
 import { JwtPayload } from 'src/auth/strategies/refresh.strategy';
 import { StatisticsPeriodDto } from './dto/statistics-period.dto';
 import { StatisticsService } from './statistics.service';
@@ -31,6 +32,7 @@ export class StatisticsController {
   }
 
   @Get('tiktok-user/:id')
+  @UseGuards(AuthGuard('jwt-access'))
   getTikTokUserStatistics(
     @Param('id') id: string,
     @Query('startDate') startDate: string,
@@ -46,11 +48,13 @@ export class StatisticsController {
   }
 
   @Get('admin/tiktok-users')
+  @UseGuards(AuthGuard('jwt-access'), AdminGuard)
   getAdminTikTokUsersStatistics(@Query() query: StatisticsPeriodDto) {
     return this.statisticsService.getAdminTikTokUsersStatistics(query);
   }
 
   @Get('admin/tiktok-users/:id')
+  @UseGuards(AuthGuard('jwt-access'), AdminGuard)
   getAdminTikTokUserStatisticsByPeriod(
     @Param('id') id: string,
     @Query() query: StatisticsPeriodDto,
@@ -62,11 +66,13 @@ export class StatisticsController {
   }
 
   @Get('admin/moderators')
+  @UseGuards(AuthGuard('jwt-access'), AdminGuard)
   getAdminModeratorsStatistics(@Query() query: StatisticsPeriodDto) {
     return this.statisticsService.getAdminModeratorsStatistics(query);
   }
 
   @Get('admin/moderators/:id')
+  @UseGuards(AuthGuard('jwt-access'), AdminGuard)
   getAdminModeratorStatisticsByPeriod(
     @Param('id') id: string,
     @Query() query: StatisticsPeriodDto,

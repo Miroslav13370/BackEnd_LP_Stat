@@ -22,8 +22,9 @@ async function bootstrap() {
     }),
   );
 
-  app.use(morgan('dev'));
-
+  if (process.env.NODE_ENV !== 'production') {
+    app.use(morgan('dev'));
+  }
   app.use(cookieParser());
 
   app.setGlobalPrefix('api');

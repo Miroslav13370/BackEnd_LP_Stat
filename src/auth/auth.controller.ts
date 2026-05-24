@@ -15,6 +15,14 @@ import type { Request, Response } from 'express';
 import { createModeratorDTO } from 'src/moderator/dto/moderator.dto';
 import { AuthService } from './auth.service';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: 'lax' as const,
+};
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -29,17 +37,8 @@ export class AuthController {
 
     await this.authService.logout(id);
 
-    res.clearCookie('accessToken', {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-    });
-
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-    });
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
 
     return {
       success: true,
@@ -114,7 +113,7 @@ export class AuthController {
     const params = new URLSearchParams({
       client_key: clientKey!,
       response_type: 'code',
-      scope: 'user.info.basic,user.info.profile,video.list',
+      scope: 'user.info.basic,video.list',
       redirect_uri: redirectUri!,
       state: crypto.randomUUID(),
     });
@@ -137,16 +136,12 @@ export class AuthController {
     const auth = await this.authService.register(dto);
 
     res.cookie('accessToken', auth.accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      ...cookieOptions,
       maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.cookie('refreshToken', auth.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      ...cookieOptions,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -161,16 +156,12 @@ export class AuthController {
     const auth = await this.authService.login(dto);
 
     res.cookie('accessToken', auth.accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      ...cookieOptions,
       maxAge: 24 * 60 * 60 * 1000,
     });
 
     res.cookie('refreshToken', auth.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      ...cookieOptions,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -194,9 +185,7 @@ export class AuthController {
     );
 
     res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      ...cookieOptions,
       maxAge: 24 * 60 * 60 * 1000,
     });
 
