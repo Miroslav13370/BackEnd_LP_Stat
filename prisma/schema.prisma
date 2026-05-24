@@ -1,0 +1,273 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../prisma/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model TikTokUser {
+  id String @id @default(uuid())
+
+  tiktok_open_id String @unique
+  isUpdate       Boolean @default(false)
+
+  access_token       String
+  access_expires_in  Int
+  access_expires_at  DateTime
+
+  refresh_token      String
+  refresh_expires_in Int
+  refresh_expires_at DateTime
+
+  tiktok_username     String?
+  tiktok_display_name String?
+  tiktok_avatar_url   String?
+
+  isAuthorContent Boolean @default(false)
+  planTarget      Int     @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  moderatorId String?
+  moderator   Moderator? @relation(fields: [moderatorId], references: [id], onDelete: SetNull)
+}
+
+model YouTubeUser {
+  id String @id @default(uuid())
+
+  google_sub         String @unique
+  youtube_channel_id String @unique
+
+  isUpdate Boolean @default(false)
+
+  access_token      String
+  access_expires_in Int
+  access_expires_at DateTime
+
+  refresh_token      String?
+  refresh_expires_at DateTime?
+
+  youtube_title         String?
+  youtube_description   String?
+  youtube_custom_url    String?
+  youtube_thumbnail_url String?
+
+  isAuthorContent Boolean @default(false)
+  planTarget      Int     @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  moderatorId String?
+  moderator   Moderator? @relation(fields: [moderatorId], references: [id], onDelete: SetNull)
+}
+
+model Moderator {
+  id               String  @id @default(uuid())
+  login            String  @unique
+  passwordHash     String?
+  refreshTokenHash String?
+
+  tikTokUser       TikTokUser[]
+  youTubeUser      YouTubeUser[]
+  instagramUserOld InstagramUserOld[]
+
+  instagramAccounts InstagramAccount[]
+
+  verifiedInstagramMetricsReports     InstagramMetricsReport[]
+  verifiedInstagramViralVideosReports InstagramViralVideosReport[]
+
+  isAdmin Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model StatisticsCache {
+  id String @id @default(uuid())
+
+  type    String
+  ownerId String
+
+  startDate DateTime
+  endDate   DateTime
+
+  data Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, ownerId, startDate, endDate])
+}
+
+model InstagramUserOld {
+  id String @id @default(uuid())
+
+  facebook_user_id   String?
+  facebook_page_id   String?
+  facebook_page_name String?
+
+  instagram_account_id String @unique
+
+  isUpdate Boolean @default(false)
+
+  access_token String
+  token_type    String?
+
+  access_expires_in Int?
+  access_expires_at DateTime?
+
+  instagram_username            String?
+  instagram_name                String?
+  instagram_biography           String?
+  instagram_profile_picture_url String?
+
+  followers_count Int @default(0)
+  follows_count   Int @default(0)
+  media_count     Int @default(0)
+
+  isAuthorContent Boolean @default(false)
+  planTarget      Int     @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  moderatorId String?
+  moderator   Moderator? @relation(fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  @@map("InstagramUser")
+}
+
+enum InstagramReportStatus {
+  DRAFT
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum InstagramReportPeriodType {
+  CUSTOM
+  WEEK
+  MONTH
+  ALL_TIME
+}
+
+model InstagramEditor {
+  id               String  @id @default(uuid())
+  login            String  @unique
+  passwordHash     String
+  refreshTokenHash String?
+
+  instagramAccounts InstagramAccount[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InstagramAccount {
+  id         String  @id @default(uuid())
+  username   String  @unique
+  accountUrl String
+  avatarUrl  String?
+
+  isAuthorContent Boolean @default(false)
+  planTarget      Int     @default(0)
+
+  moderatorId String?
+  moderator   Moderator? @relation(fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  editorId String?
+  editor   InstagramEditor? @relation(fields: [editorId], references: [id], onDelete: SetNull)
+
+  metricsReports     InstagramMetricsReport[]
+  viralVideosReports InstagramViralVideosReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([editorId])
+  @@index([moderatorId])
+}
+
+model InstagramMetricsReport {
+  id String @id @default(uuid())
+
+  instagramAccountId String
+  instagramAccount   InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
+
+  periodType InstagramReportPeriodType @default(WEEK)
+
+  weekStartDate DateTime?
+  weekEndDate   DateTime?
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  currentTotalViews  Int
+  currentTotalLikes  Int
+  currentVideosCount Int
+
+  viewsDelta  Int @default(0)
+  likesDelta  Int @default(0)
+  videosDelta Int @default(0)
+
+  status InstagramReportStatus @default(PENDING)
+
+  rejectReason String?
+
+  verifiedByModeratorId String?
+  verifiedByModerator   Moderator? @relation(fields: [verifiedByModeratorId], references: [id], onDelete: SetNull)
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([instagramAccountId, periodType, weekStartDate, weekEndDate])
+  @@index([instagramAccountId])
+  @@index([status])
+  @@index([verifiedByModeratorId])
+  @@index([periodType])
+  @@index([startDate, endDate])
+}
+
+model InstagramViralVideosReport {
+  id String @id @default(uuid())
+
+  instagramAccountId String
+  instagramAccount   InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
+
+  periodType InstagramReportPeriodType @default(MONTH)
+
+  weekStartDate DateTime?
+  weekEndDate   DateTime?
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  videosCount Int  @default(0)
+  videos      Json
+
+  status InstagramReportStatus @default(PENDING)
+
+  rejectReason String?
+
+  verifiedByModeratorId String?
+  verifiedByModerator   Moderator? @relation(fields: [verifiedByModeratorId], references: [id], onDelete: SetNull)
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([instagramAccountId, periodType, weekStartDate, weekEndDate])
+  @@index([instagramAccountId])
+  @@index([status])
+  @@index([verifiedByModeratorId])
+  @@index([periodType])
+  @@index([startDate, endDate])
+}
