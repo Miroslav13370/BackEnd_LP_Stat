@@ -23,6 +23,11 @@ const cookieOptions = {
   sameSite: 'lax' as const,
 };
 
+const lastAccountCookieOptions = {
+  ...cookieOptions,
+  maxAge: 365 * 24 * 60 * 60 * 1000,
+};
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -81,6 +86,21 @@ export class AuthController {
     return res.redirect(`${process.env.CLIENT_URL}/instagram/${user.id}`);
   }
 
+  @Get('youtube/entry')
+  youtubeEntry(@Req() req: Request, @Res() res: Response) {
+    const lastYouTubeUserId = req.cookies?.lastYouTubeUserId as
+      | string
+      | undefined;
+
+    if (lastYouTubeUserId) {
+      return res.redirect(
+        `${process.env.CLIENT_URL}/youtube/${lastYouTubeUserId}`,
+      );
+    }
+
+    return this.redirectToGoogleYoutube(res);
+  }
+
   @Get('youtube')
   redirectToGoogleYoutube(@Res() res: Response) {
     return res.redirect(this.authService.getGoogleYoutubeAuthUrl());
@@ -102,7 +122,24 @@ export class AuthController {
 
     const user = await this.authService.getYoutubeTokens(code);
 
+    res.cookie('lastYouTubeUserId', user.id, lastAccountCookieOptions);
+
     return res.redirect(`${process.env.CLIENT_URL}/youtube/${user.id}`);
+  }
+
+  @Get('tiktok/entry')
+  tiktokEntry(@Req() req: Request, @Res() res: Response) {
+    const lastTikTokUserId = req.cookies?.lastTikTokUserId as
+      | string
+      | undefined;
+
+    if (lastTikTokUserId) {
+      return res.redirect(
+        `${process.env.CLIENT_URL}/tiktok/${lastTikTokUserId}`,
+      );
+    }
+
+    return this.redirectToTikTok(res);
   }
 
   @Get('tiktok')
@@ -123,7 +160,13 @@ export class AuthController {
 
   @Get('tiktok/callback')
   async tiktokCallback(@Query('code') code: string, @Res() res: Response) {
+    if (!code) {
+      throw new UnauthorizedException('TikTok не вернул code');
+    }
+
     const user = await this.authService.getTikTokTokens(code);
+
+    res.cookie('lastTikTokUserId', user.id, lastAccountCookieOptions);
 
     return res.redirect(`${process.env.CLIENT_URL}/tiktok/${user.id}`);
   }
