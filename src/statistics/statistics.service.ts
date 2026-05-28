@@ -4,13 +4,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InstagramReportStatus, Prisma } from 'prisma/generated/prisma/client';
+import { Prisma } from 'prisma/generated/prisma/client';
 
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   TikTokVideo,
   TikTokVideosResponse,
 } from 'src/types/tikTokTokenResponse.type';
+import {
+  InstagramParserService,
+} from 'src/instagram-parser/instagram-parser.service';
 import {
   YoutubeStatisticsService,
   YouTubeUserForStats,
@@ -80,6 +83,7 @@ export class StatisticsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly youtubeStatisticsService: YoutubeStatisticsService,
+    private readonly instagramParserService: InstagramParserService,
   ) {}
 
   private readonly fullCuratorSalary = 20_000;
@@ -794,97 +798,75 @@ export class StatisticsService {
     start: Date,
     end: Date,
   ): Promise<SocialAccountWithVideos> {
-    const metricsReports = await this.prisma.instagramMetricsReport.findMany({
-      where: {
-        instagramAccountId: account.id,
-        status: InstagramReportStatus.VERIFIED,
-        OR: [
-          {
-            weekStartDate: {
-              gte: start,
-              lt: end,
-            },
-          },
-          {
-            startDate: {
-              gte: start,
-              lt: end,
-            },
-          },
-        ],
-      },
-    });
+    try {
+      const profile =
+        await this.instagramParserService.fetchInstagramProfileByUsername(
+          account.username,
+        );
 
-    const viralReports = await this.prisma.instagramViralVideosReport.findMany({
-      where: {
-        instagramAccountId: account.id,
-        status: InstagramReportStatus.VERIFIED,
-        OR: [
-          {
-            weekStartDate: {
-              gte: start,
-              lt: end,
-            },
-          },
-          {
-            startDate: {
-              gte: start,
-              lt: end,
-            },
-          },
-        ],
-      },
-    });
+      const rangeVideos = profile.videos.filter((video) => {
+        const videoTime = video.timestamp * 1000;
 
-    const statsViewsCount = metricsReports.reduce((sum, report) => {
-      return sum + report.viewsDelta;
-    }, 0);
+        return videoTime >= start.getTime() && videoTime < end.getTime();
+      });
 
-    const statsLikesCount = metricsReports.reduce((sum, report) => {
-      return sum + report.likesDelta;
-    }, 0);
+      const videos = rangeVideos.map((video) =>
+        this.makeInstagramViralVideo({
+          account,
+          video,
+        }),
+      );
 
-    const statsVideosCount = metricsReports.reduce((sum, report) => {
-      return sum + report.videosDelta;
-    }, 0);
+      const statsViewsCount = rangeVideos.reduce(
+        (sum, video) => sum + video.views,
+        0,
+      );
 
-    const viralVideos = viralReports.flatMap((report) => {
-      const videos = report.videos;
+      const statsLikesCount = rangeVideos.reduce(
+        (sum, video) => sum + video.likes,
+        0,
+      );
 
-      if (!Array.isArray(videos)) return [];
+      const statsVideosCount = rangeVideos.length;
 
-      return videos as Array<{
-        url: string;
-        views: number;
-        likes: number;
-        publishedAt: string;
-        title?: string;
-      }>;
-    });
+      return {
+        id: account.id,
+        platform: 'instagram',
+        openId: account.id,
+        username: profile.username ?? account.username,
+        displayName: profile.displayName ?? account.username,
+        avatarUrl: account.avatarUrl,
+        moderatorId: account.moderatorId,
+        isAuthorContent: account.isAuthorContent,
+        planTarget: account.planTarget,
+        videos,
+        error: null,
+        statsViewsCount,
+        statsLikesCount,
+        statsVideosCount,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Не удалось получить статистику Instagram аккаунта';
 
-    const videos = viralVideos.map((video) =>
-      this.makeInstagramViralVideo({
-        account,
-        video,
-      }),
-    );
+      this.logger.warn(`Instagram парсинг не удался для ${account.username}: ${message}`);
 
-    return {
-      id: account.id,
-      platform: 'instagram',
-      openId: account.id,
-      username: account.username,
-      displayName: account.username,
-      avatarUrl: account.avatarUrl,
-      moderatorId: account.moderatorId,
-      isAuthorContent: account.isAuthorContent,
-      planTarget: account.planTarget,
-      videos,
-      error: null,
-      statsViewsCount,
-      statsLikesCount,
-      statsVideosCount,
-    };
+      return {
+        id: account.id,
+        platform: 'instagram',
+        openId: account.id,
+        username: account.username,
+        displayName: account.username,
+        avatarUrl: account.avatarUrl,
+        moderatorId: account.moderatorId,
+        isAuthorContent: account.isAuthorContent,
+        planTarget: account.planTarget,
+        videos: [],
+        error: message,
+      };
+    }
   }
 
   private async getTikTokAccountsWithVideos(

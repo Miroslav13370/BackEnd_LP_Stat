@@ -4,6 +4,8 @@ import {
   IsString,
   IsUrl,
   IsUUID,
+  MaxLength,
+  MinLength,
 } from 'class-validator';
 
 export class CreateInstagramAccountDto {
@@ -21,6 +23,13 @@ export class CreateInstagramAccountDto {
 export class ConnectInstagramEditorDto {
   @IsUUID()
   editorKey!: string;
+}
+
+export class AddInstagramAccountByModeratorDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(150)
+  username!: string;
 }
 
 export class UpdateInstagramAuthorContentDto {

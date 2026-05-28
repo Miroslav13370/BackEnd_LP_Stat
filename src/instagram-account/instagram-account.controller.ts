@@ -15,6 +15,7 @@ import type { Request } from 'express';
 import { InstagramEditorJwtPayload } from 'src/instagram-auth/instagram-auth.service';
 import {
   ConnectInstagramEditorDto,
+  AddInstagramAccountByModeratorDto,
   CreateInstagramAccountDto,
   UpdateInstagramAuthorContentDto,
   UpdateInstagramModeratorDto,
@@ -47,6 +48,17 @@ export class InstagramAccountController {
     const user = req.user as InstagramEditorJwtPayload;
 
     return this.instagramAccountService.getMyAccounts(user.id);
+  }
+
+  @UseGuards(AuthGuard('jwt-access'))
+  @Post('by-moderator')
+  createForModerator(
+    @Req() req: Request,
+    @Body() dto: AddInstagramAccountByModeratorDto,
+  ) {
+    const user = req.user as ModeratorJwtPayload;
+
+    return this.instagramAccountService.createForModerator(user.id, dto);
   }
 
   @UseGuards(AuthGuard('jwt-access'))
